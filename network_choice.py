@@ -9,6 +9,7 @@ from linuxpy.video.device import (
     FrameType,
     Format,
 )
+from typing import Any
 
 
 class NetworkChooser:
@@ -33,7 +34,7 @@ class NetworkChooser:
         self.activePublisher.set(self.active)
         self.selectedEntry.set(self.active)
 
-    def get(self) -> str:
+    def get(self) -> Any:
         return self.active
 
     def periodic(self):
@@ -57,7 +58,7 @@ class NetworkMenuControl(NetworkChooser):
             table,
             control.config_name,
             [control[id] for id in control],
-            control[self.control.value],
+            control[control.value],
         )
 
     def get(self) -> int:

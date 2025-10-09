@@ -92,7 +92,6 @@ class NTMenuControl(NTControl):
         self.device = device
         self.control = control
         self.chooser = NetworkMenuControl(table, control.config_name)
-        self.chooser.setOptions([self.control[id] for id in self.control])
 
     def update(self):
         self.chooser.periodic()

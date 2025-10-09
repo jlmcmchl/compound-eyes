@@ -7,7 +7,7 @@ from camera_controls_nt import CameraControlsTable
 from debug_server import MjpgStreamer
 from queue import Queue
 from linuxpy.io import GeventIO
-from source import CameraSoure
+from source import CameraSource
 
 
 class Camera:
@@ -20,9 +20,9 @@ class Camera:
         role_topic = self.nt_table.getStringTopic("role")
         self.role_entry = role_topic.getEntry("Change Me!")
 
-        queue = Queue(maxsize=1)
+        queue: Queue = Queue(maxsize=1)
         debug_server.add_stream(self.role_entry.get(), queue)
-        self.camera_source = CameraSoure(self.device, queue)
+        self.camera_source = CameraSource(self.device, queue)
 
         self.config_table = CameraControlsTable(
             self.device, self.nt_table.getSubTable("config"), self.camera_source

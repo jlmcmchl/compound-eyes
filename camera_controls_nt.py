@@ -21,6 +21,9 @@ class NTControl:
     def sync(self):
         pass
 
+    def changed(self) -> bool:
+        pass
+
 
 class NTBooleanControl(NTControl):
     def __init__(self, device: Device, control: BooleanControl, table: NetworkTable):
@@ -44,6 +47,10 @@ class NTBooleanControl(NTControl):
 
     def sync(self):
         self.entry.set(bool(self.control.value))
+
+    def changed(self) -> bool:
+        val = int(self.entry.get())
+        return int(val) != self.control.value
 
 
 class NTIntegerControl(NTControl):
@@ -86,6 +93,13 @@ class NTIntegerControl(NTControl):
     def sync(self):
         self.entry.set(self.control.value)
 
+    def changed(self) -> bool:
+        val = self.entry.get()
+        val = self.fix_val(val)
+        self.entry.set(val)
+
+        return val != self.control.value
+
 
 class NTMenuControl(NTControl):
     def __init__(self, device: Device, control: MenuControl, table: NetworkTable):
@@ -104,6 +118,12 @@ class NTMenuControl(NTControl):
 
     def sync(self):
         self.chooser.sync()
+
+    def changed(self) -> bool:
+        self.chooser.periodic()
+        val = self.chooser.get()
+
+        return val != self.control.value
 
 
 class NTFormatControl(NTControl):
@@ -138,6 +158,16 @@ class NTFormatControl(NTControl):
 
     def sync(self):
         self.chooser.sync()
+
+    def changed(self):
+        val = self.chooser.get()
+        current_format = self.device.get_format()
+
+        return (
+            val.pixel_format != current_format.pixel_format
+            or val.width != current_format.width
+            or val.height != current_format.height
+        )
 
 
 class CameraControlsTable:
@@ -182,3 +212,10 @@ class CameraControlsTable:
         else:
             for control in self.controls:
                 control.sync()
+
+    def changed(self):
+        if self.setup_entry.get():
+            return any(control.changed() for control in self.controls)
+        for control in self.controls:
+            control.sync()
+        return False

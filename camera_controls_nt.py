@@ -10,7 +10,6 @@ from ntcore import (
     NetworkTable,
 )
 import json
-from source import CameraSource
 from network_choice import NetworkMenuControl, NetworkFormatControl
 
 
@@ -22,7 +21,7 @@ class NTControl:
         pass
 
     def changed(self) -> bool:
-        pass
+        return False
 
 
 class NTBooleanControl(NTControl):
@@ -127,9 +126,8 @@ class NTMenuControl(NTControl):
 
 
 class NTFormatControl(NTControl):
-    def __init__(self, device: Device, table: NetworkTable, source: CameraSource):
+    def __init__(self, device: Device, table: NetworkTable):
         self.device = device
-        self.source = source
         self.chooser = NetworkFormatControl(table, device)
 
     def update(self):
@@ -143,14 +141,12 @@ class NTFormatControl(NTControl):
         ):
             self.device.log.info("Updating Video Format")
             try:
-                self.source.stop()
                 self.device.set_format(
                     BufferType.VIDEO_CAPTURE,
                     format.width,
                     format.height,
                     format.pixel_format.name,
                 )
-                self.source.start()
             except Exception:
                 self.device.log.info("Could not update Video Format")
             else:
@@ -171,10 +167,9 @@ class NTFormatControl(NTControl):
 
 
 class CameraControlsTable:
-    def __init__(self, camera: Device, table: NetworkTable, source: CameraSource):
+    def __init__(self, camera: Device, table: NetworkTable):
         self.table = table
         self.camera = camera
-        self.source = source
 
         # Assigned in load_controls()
         self.controls: list[NTControl] = []
@@ -190,7 +185,7 @@ class CameraControlsTable:
             self.create_nt_control(control) for control in self.camera.controls.values()
         ]
 
-        self.controls.append(NTFormatControl(self.camera, self.table, self.source))
+        self.controls.append(NTFormatControl(self.camera, self.table))
 
     def unload_controls(self):
         self.controls = []

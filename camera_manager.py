@@ -24,7 +24,7 @@ class Camera:
         debug_server.add_stream(self.role_entry.get(), self.queue)
 
         self.config_table = CameraControlsTable(
-            self.device, self.nt_table.getSubTable("config"), self.camera_source
+            self.device, self.nt_table.getSubTable("config")
         )
 
         self.main_thread = threading.Thread(name=device, target=self.main_loop)

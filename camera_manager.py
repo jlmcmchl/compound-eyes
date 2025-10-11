@@ -51,6 +51,9 @@ class Camera:
 
                     if self.config_table.changed():
                         break
+
+                    if self._stop:
+                        break
         finally:
             self.device.close()
 

@@ -13,7 +13,6 @@ def main():
     try:
         while True:
             camera_manager.load_cameras()
-            camera_manager.update_controls()
 
             time.sleep(0.1)
 

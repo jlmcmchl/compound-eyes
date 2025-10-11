@@ -6,41 +6,53 @@ import logging
 from camera_controls_nt import CameraControlsTable
 from debug_server import MjpgStreamer
 from queue import Queue
-from linuxpy.io import GeventIO
-from source import CameraSource
+import threading
+
+from convert_frame import process_frame
 
 
 class Camera:
-    def __init__(
-        self, device: Device, debug_server: MjpgStreamer, parent: NetworkTable
-    ):
-        self.device = device
+    def __init__(self, device: str, debug_server: MjpgStreamer, parent: NetworkTable):
+        self.device = Device(device)
+        self.device.open()
 
         self.nt_table = parent.getSubTable(self.device.info.bus_info)
         role_topic = self.nt_table.getStringTopic("role")
         self.role_entry = role_topic.getEntry("Change Me!")
 
-        queue: Queue = Queue(maxsize=1)
-        debug_server.add_stream(self.role_entry.get(), queue)
-        self.camera_source = CameraSource(self.device, queue)
+        self.queue: Queue = Queue(maxsize=1)
+        debug_server.add_stream(self.role_entry.get(), self.queue)
 
         self.config_table = CameraControlsTable(
             self.device, self.nt_table.getSubTable("config"), self.camera_source
         )
 
-    def update_controls(self):
-        self.config_table.update()
+        self.main_thread = threading.Thread(name=device, target=self.main_loop)
+        self._stop = False
 
-    def open(self):
-        self.device.open()
+    def start(self):
+        self.main_thread.start()
 
-        if self.config_table:
+    def stop(self):
+        self._stop = True
+        self.main_thread.join()
+
+    def main_loop(self):
+        try:
             self.config_table.load_controls()
 
-    def close(self):
-        if self.config_table:
-            self.config_table.unload_controls()
-        self.device.close()
+            while not self._stop:
+                self.update_controls()
+
+                for frame in self.device:
+                    normalized_frame = process_frame(frame)
+                    if not self.queue.full():
+                        self.queue.put((frame, normalized_frame))
+
+                    if self.config_table.changed():
+                        break
+        finally:
+            self.device.close()
 
 
 class CameraManager:
@@ -62,11 +74,8 @@ class CameraManager:
                 new_devices += 1
                 try:
                     self.logger.info(f"Adding {file} to the camera manager.")
-                    device = Device(file, io=GeventIO)
-                    camera = Camera(device, self.debug_server, self.table)
-
-                    camera.open(self.table)
-                    camera.update_controls()
+                    camera = Camera(file, self.debug_server, self.table)
+                    camera.start()
 
                     self.cameras[file] = camera
                 except Exception as e:
@@ -84,7 +93,7 @@ class CameraManager:
             self.logger.info(f"Removing {file} from the camera manager.")
             camera = self.cameras[file]
             if camera is not None:
-                camera.close()
+                camera.stop()
             del self.cameras[file]
 
     def unload_cameras(self):
@@ -93,7 +102,3 @@ class CameraManager:
                 camera.close()
 
         self.cameras = {}
-
-    def update_controls(self):
-        for camera in self.cameras.values():
-            camera.update_controls()

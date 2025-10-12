@@ -25,7 +25,7 @@ class NetworkChooser:
         self.optionsPublisher = self.table.getStringArrayTopic("options").publish()
         self.defaultPublisher = self.table.getStringTopic("default").publish()
         self.activePublisher = self.table.getStringTopic("active").publish()
-        self.selectedEntry = self.table.getStringTopic("selected").getEntry()
+        self.selectedEntry = self.table.getStringTopic("selected").getEntry(self.active)
 
         self.namePublisher.set(name)
         self.typePublisher.set("String Chooser")

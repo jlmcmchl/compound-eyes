@@ -73,9 +73,9 @@ class NetworkFormatControl(NetworkChooser):
             if format.type == FrameSizeType.DISCRETE
         ]
 
-        self.format_strs = [self.str_format(format) for format in self.formats]
+        self.format_strs = [self.str_frame(format) for format in self.formats]
 
-        default_format = self.str_format(device.get_format(BufferType.VIDEO_CAPTURE))
+        default_format = self.format_strs[-1]
         super().__init__(
             table,
             "video_format",
@@ -83,8 +83,8 @@ class NetworkFormatControl(NetworkChooser):
             default_format,
         )
 
-    def str_format(self, format: FrameType | Format) -> str:
-        return f"{format.pixel_format.name} {format.width}x{format.height}px"
+    def str_frame(self, format: FrameType) -> str:
+        return f"{format.pixel_format.name} {format.width}x{format.height}px {format.min_fps}fps"
 
     def get(self) -> FrameType:
         idx = self.format_strs.index(self.active)

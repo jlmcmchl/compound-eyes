@@ -16,12 +16,12 @@ class _StreamHandler:
 
     async def __call__(self, request: web.Request) -> web.StreamResponse:
         args = request.url.query
-        if 'fps' in args:
-            self._stream.set_fps(int(args['fps']))
-        if 'compression' in args:
-            self._stream.set_quality(int(args['compression']))
-        if 'resolution' in args:
-            reso = args['resolution'].split['x']
+        if "fps" in args:
+            self._stream.set_fps(int(args["fps"]))
+        if "compression" in args:
+            self._stream.set_quality(int(args["compression"]))
+        if "resolution" in args:
+            reso = args["resolution"].split["x"]
             self._stream.set_size((int(reso[0]), int(reso[1])))
         viewer_token = request.cookies.get("viewer_token")
         response = web.StreamResponse(

@@ -5,6 +5,8 @@ from linuxpy.video.device import (
     IntegerControl,
     BaseControl,
     BufferType,
+    FrameType,
+    FrameIntervalType,
 )
 from ntcore import (
     NetworkTable,
@@ -30,8 +32,9 @@ class NTBooleanControl(NTControl):
         self.control = control
         self.topic = table.getBooleanTopic(control.config_name)
         self.entry = self.topic.getEntry(bool(self.control.default))
+        self.entry.set(bool(self.control.value))
 
-        self.metadata_topic = table.getStringTopic(f"{control.config_name}/.metadata")
+        self.metadata_topic = table.getStringTopic(f".metadata/{control.config_name}")
         self.metadata_pub = self.metadata_topic.publish()
 
         metadata = {"default": bool(self.control.default)}
@@ -39,6 +42,7 @@ class NTBooleanControl(NTControl):
 
     def update(self):
         val = int(self.entry.get())
+
         if int(val) != self.control.value:
             self.device.log.info(f"Updating {self.control.name}")
             self.control.value = int(val)
@@ -59,7 +63,7 @@ class NTIntegerControl(NTControl):
         self.topic = table.getIntegerTopic(control.config_name)
         self.entry = self.topic.getEntry(self.control.default)
 
-        self.metadata_topic = table.getStringTopic(f"{control.config_name}/.metadata")
+        self.metadata_topic = table.getStringTopic(f".metadata/{control.config_name}")
         self.metadata_pub = self.metadata_topic.publish()
 
         metadata = {
@@ -104,7 +108,7 @@ class NTMenuControl(NTControl):
     def __init__(self, device: Device, control: MenuControl, table: NetworkTable):
         self.device = device
         self.control = control
-        self.chooser = NetworkMenuControl(table, control.config_name)
+        self.chooser = NetworkMenuControl(table, control)
 
     def update(self):
         self.chooser.periodic()
@@ -131,33 +135,51 @@ class NTFormatControl(NTControl):
         self.chooser = NetworkFormatControl(table, device)
 
     def update(self):
+        self.chooser.periodic()
         val = self.chooser.get()
-        current_format = self.device.get_format()
+        current_format = self.get_format()
 
         if (
             val.pixel_format != current_format.pixel_format
             or val.width != current_format.width
             or val.height != current_format.height
+            or val.max_fps != current_format.max_fps
         ):
             self.device.log.info("Updating Video Format")
             try:
                 self.device.set_format(
                     BufferType.VIDEO_CAPTURE,
-                    format.width,
-                    format.height,
-                    format.pixel_format.name,
+                    val.width,
+                    val.height,
+                    val.pixel_format.value,
                 )
-            except Exception:
-                self.device.log.info("Could not update Video Format")
+                self.device.set_fps(BufferType.VIDEO_CAPTURE, val.max_fps)
+            except Exception as e:
+                self.device.log.error(f"Could not update Video Format: {e}")
             else:
                 self.device.log.info("Updated Video Format")
+
+    def get_format(self) -> FrameType:
+        format = self.device.get_format(BufferType.VIDEO_CAPTURE)
+        fps = self.device.get_fps(BufferType.VIDEO_CAPTURE)
+
+        return FrameType(
+            type=FrameIntervalType.DISCRETE,
+            pixel_format=format.pixel_format,
+            width=format.width,
+            height=format.height,
+            min_fps=fps,
+            max_fps=fps,
+            step_fps=fps,
+        )
 
     def sync(self):
         self.chooser.sync()
 
     def changed(self):
+        self.chooser.periodic()
         val = self.chooser.get()
-        current_format = self.device.get_format()
+        current_format = self.device.get_format(BufferType.VIDEO_CAPTURE)
 
         return (
             val.pixel_format != current_format.pixel_format
@@ -173,9 +195,6 @@ class CameraControlsTable:
 
         # Assigned in load_controls()
         self.controls: list[NTControl] = []
-
-        self.setup_entry = table.getBooleanTopic("setup_mode").getEntry(False)
-        self.setup_entry.set(self.setup_entry.get())
 
     def load_controls(self):
         self.camera.log.info(
@@ -201,16 +220,12 @@ class CameraControlsTable:
         raise Exception(f"Unknown control type found {control}")
 
     def update(self):
-        if self.setup_entry.get():
-            for control in self.controls:
-                control.update()
-        else:
-            for control in self.controls:
-                control.sync()
+        for control in self.controls:
+            control.update()
 
-    def changed(self):
-        if self.setup_entry.get():
-            return any(control.changed() for control in self.controls)
+    def sync(self):
         for control in self.controls:
             control.sync()
-        return False
+
+    def changed(self):
+        return any(control.changed() for control in self.controls)

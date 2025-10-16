@@ -1,0 +1,7 @@
+FROM ubuntu:24.04
+
+RUN apt update
+RUN apt install -y git make build-essential python3.12-dev libsuitesparse-dev mrbuild re2c libfreeimage-dev python3-numpy libdogleg-dev liblist-moreutils-perl python3-packaging python3-numpysane
+
+RUN sed -i "s/from distutils.version import StrictVersion/from packaging.version import Version/g" /usr/lib/python3/dist-packages/numpysane.py
+RUN sed -i "s/StrictVersion/Version/g" /usr/lib/python3/dist-packages/numpysane.py 

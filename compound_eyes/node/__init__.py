@@ -13,8 +13,11 @@ from typing import Any
 
 
 class Node:
-    def __init__(self, name=None):
-        self.name = name or self.__class__.__name__
+    def __init__(self, name: str | None = None):
+        if name is None:
+            self.name = self.__class__.__name__
+        else:
+            self.name = f"{self.__class__.__name__}_{name}"
         self._stop = False
         self.thread = Thread(name=name, target=self._run)
 
@@ -76,7 +79,7 @@ class FpsNode(Node):
         self.sink = sink
         self.fps = FpsCounter()
 
-        super().__init__(f"{name}_fps")
+        super().__init__(name)
 
     def loop(self):
         try:

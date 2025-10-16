@@ -11,7 +11,8 @@ from .camera_controls_nt import CameraControlsTable
 from .convert_frame import process_frame
 from .network_choice import NetworkChooser
 from .datatypes import Capture
-from .node import Graph, FpsNode, DebugNode, DetectCharucoNode, CalibrationConfig
+from .node import Graph, FpsNode, DebugNode, DetectCharucoNode
+from .calibration_routine import CalibrationRoutine, CalibrationConfig
 
 
 class Camera:
@@ -25,19 +26,13 @@ class Camera:
         debug_queue = Queue(maxsize=1)
 
         self.graph = Graph(self.device.info.bus_info)
-        self.graph.add_node(
-            DetectCharucoNode(
-                self.raw_queue,
-                charuco_queue,
-                CalibrationConfig(
-                    aruco_dict="DICT_4X4_1000",
-                    board_size=(15, 15),
-                    square_size=0.03,
-                    marker_size=0.022,
-                ),
-                self.device.info.bus_info,
-            )
+
+        self.calibration_node = DetectCharucoNode(
+            self.raw_queue,
+            charuco_queue,
+            self.device.info.bus_info,
         )
+        self.graph.add_node(self.calibration_node)
         self.graph.add_node(FpsNode(charuco_queue, debug_queue, name="source"))
         self.graph.add_node(
             DebugNode(
@@ -81,11 +76,45 @@ class Camera:
                 for frame in self.device:
                     normalized_frame = process_frame(frame)
 
+                    last_mode = self.mode_entry.get()
                     self.mode_entry.periodic()
                     mode = self.mode_entry.get()
 
                     if not self.raw_queue.full():
                         self.raw_queue.put(Capture(frame, normalized_frame))
+
+                    if last_mode == "calibration":
+                        if mode != last_mode:
+                            routine = self.calibration_node.end_calibration()
+
+                            if routine is not None:
+                                routine.finish()
+
+                                camera = routine.load_calibration()
+
+                                if camera is not None:
+                                    print("calibrated!!!", camera.intrinsics())
+                    elif mode == "calibration":
+                        routine = CalibrationRoutine(
+                            CalibrationConfig(
+                                aruco_dict="DICT_4X4_1000",
+                                board_size=(15, 15),
+                                square_size=0.03,
+                                marker_size=0.022,
+                                capture_max=1000,
+                                image_size=(
+                                    normalized_frame.shape[1],
+                                    normalized_frame.shape[0],
+                                ),
+                                fov=55,
+                                lens_model="LENSMODEL_OPENCV8",
+                                device_name=self.device.info.bus_info,
+                            )
+                        )
+
+                        routine.begin()
+
+                        self.calibration_node.begin_calibration(routine)
 
                     if mode == "setup":
                         if self.config_table.changed():

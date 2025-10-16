@@ -13,6 +13,7 @@ from typing import Any
 from dataclasses import dataclass
 from cv2 import aruco
 from ..datatypes import Capture
+from ..calibration_routine import CalibrationRoutine
 
 
 class Node:
@@ -103,6 +104,10 @@ class CalibrationConfig:
     board_size: tuple[int, int]
     square_size: float
     marker_size: float
+    capture_max: int
+    image_size: tuple[int, int]
+    fov: float
+    lens_model: str
 
     def getDetector(self) -> cv2.aruco.CharucoDetector:
         assert self.aruco_dict in dir(aruco)
@@ -131,19 +136,10 @@ class CalibrationConfig:
 
 
 class DetectCharucoNode(Node):
-    def __init__(
-        self, source: Queue[Capture], sink: Queue, config: CalibrationConfig, name: str
-    ):
+    def __init__(self, source: Queue[Capture], sink: Queue, name: str):
         self.source = source
         self.sink = sink
-        self.config = config
-
-        self.corner_count = (self.config.board_size[0] - 1) * (
-            self.config.board_size[1] - 1
-        )
-        self.detector = config.getDetector()
-
-        self.corner_cache = {}
+        self.routine: CalibrationRoutine | None = None
 
         super().__init__(name)
 
@@ -151,37 +147,8 @@ class DetectCharucoNode(Node):
         try:
             capture = self.source.get(timeout=0.1)
 
-            (
-                chessboard_corner_coords,
-                chessboard_corner_ids,
-                marker_corner_coords,
-                marker_ids,
-            ) = self.detector.detectBoard(capture.image)
-
-            if chessboard_corner_coords is not None:
-                fname = self.save_calibration_image(capture)
-                self.corner_cache[fname] = (
-                    chessboard_corner_ids,
-                    chessboard_corner_coords,
-                )
-                capture.metadata['corners_found'] = chessboard_corner_ids.shape[0]
-            else:
-                capture.metadata['corners_found'] = 0
-
-            capture.metadata['total_corners_found'] = sum(ids.shape[0] for (ids, _) in self.corner_cache.values())
-
-            for _, corners in self.corner_cache.values():
-                cv2.aruco.drawDetectedCornersCharuco(capture.image, corners)
-
-                # cv2.aruco.drawDetectedCornersCharuco(
-                #     capture.image, chessboard_corner_coords
-                # )
-
-                
-
-            if marker_corner_coords is not None:
-                cv2.aruco.drawDetectedMarkers(capture.image, marker_corner_coords)
-
+            if self.routine is not None:
+                self.routine.run(capture)
 
             if not self.sink.full():
                 self.sink.put(capture)
@@ -189,15 +156,13 @@ class DetectCharucoNode(Node):
         except Empty:
             pass
 
-    def save_calibration_image(self, capture: Capture):
-        filename = (
-            f"calibration/{self.name}"
-            f"/{capture.frame.format.width}x{capture.frame.format.height}"
-            f"/img{len(self.corner_cache) + 1}.png"
-        )
-        cv2.imwrite(filename, capture.image)
+    def begin_calibration(self, routine: CalibrationRoutine):
+        self.routine = routine
 
-        return filename
+    def end_calibration(self) -> CalibrationRoutine | None:
+        routine = self.routine
+        self.routine = None
+        return routine
 
 
 class DebugNode(Node):

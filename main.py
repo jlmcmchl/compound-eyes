@@ -1,7 +1,7 @@
 import time
 import logging
 from ntcore import NetworkTableInstance
-from camera_manager import CameraManager
+from compound_eyes.camera_manager import CameraManager
 
 
 def main():
@@ -18,6 +18,7 @@ def main():
 
     finally:
         camera_manager.unload_cameras()
+        nt.stopServer()
 
 
 if __name__ == "__main__":

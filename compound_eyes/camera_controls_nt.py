@@ -12,7 +12,7 @@ from ntcore import (
     NetworkTable,
 )
 import json
-from network_choice import NetworkMenuControl, NetworkFormatControl
+from .network_choice import NetworkMenuControl, NetworkFormatControl
 
 
 class NTControl:
@@ -61,7 +61,7 @@ class NTIntegerControl(NTControl):
         self.device = device
         self.control = control
         self.topic = table.getIntegerTopic(control.config_name)
-        self.entry = self.topic.getEntry(self.control.default)
+        self.entry = self.topic.getEntry(self.control.value)
 
         self.metadata_topic = table.getStringTopic(f".metadata/{control.config_name}")
         self.metadata_pub = self.metadata_topic.publish()

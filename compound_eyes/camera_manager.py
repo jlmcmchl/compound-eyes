@@ -1,18 +1,18 @@
 from linuxpy.video.device import Device, iter_video_capture_files
 from ntcore import NetworkTable
 from pathlib import Path
-import logging
-
-from camera_controls_nt import CameraControlsTable
-from debug_server import VideoQueueConsumer
 from queue import Queue
-import threading
 
-from convert_frame import process_frame
-from network_choice import NetworkChooser
-from fps_counter import FpsCounter
-from datatypes import Capture
+import logging
+import threading
 import traceback
+
+from .camera_controls_nt import CameraControlsTable
+from .debug_server import VideoQueueConsumer
+from .convert_frame import process_frame
+from .network_choice import NetworkChooser
+from .fps_counter import FpsCounter
+from .datatypes import Capture
 
 
 class Camera:
@@ -33,7 +33,7 @@ class Camera:
             self.device, self.nt_table.getSubTable("config")
         )
 
-        self.main_thread = threading.Thread(name=device, target=self.main_loop)
+        self.main_thread = threading.Thread(name=device.filename.name, target=self.main_loop)
         self._stop = False
 
         self.fps_counter = FpsCounter()
@@ -89,7 +89,7 @@ class CameraManager:
         self.streams = table.getStringArrayTopic("video/streams").getEntry([])
 
         # Assigned in load_cameras()
-        self.cameras: dict[Path, Camera] = {}
+        self.cameras: dict[Path, Camera | None] = {}
 
     def add_mjpg_stream(self, port):
         new_stream = f"mjpeg:http://robojackets-coprocessor.attlocal.net:{port}"
@@ -139,8 +139,10 @@ class CameraManager:
             del self.cameras[file]
 
     def unload_cameras(self):
-        for camera in self.cameras.values():
+        for file, camera in self.cameras.items():
             if camera is not None:
+                self.logger.info(f"Waiting on {file}...")
                 camera.stop()
+                self.logger.info(f"{file} closed...")
 
         self.cameras = {}

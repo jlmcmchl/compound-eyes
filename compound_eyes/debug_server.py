@@ -1,10 +1,33 @@
-import threading
 from queue import Queue
 from mjpeg_streamer.server import Server
 from mjpeg_streamer.stream import Stream
-from datatypes import Capture
-from paint_frame import paint_frame
 
+import threading
+import numpy as np
+import cv2
+
+from .datatypes import Capture
+
+def paint_frame(image: np.ndarray, fps: float, timestamp: float):
+    cv2.putText(
+        image,
+        f"Fps: {fps:.2f}",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 0, 255),
+        2,
+    )
+
+    cv2.putText(
+        image,
+        f"Timestamp: {timestamp:.2f}",
+        (10, 60),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 0, 255),
+        2,
+    )
 
 class VideoQueueConsumer:
     _stop = False
@@ -17,7 +40,7 @@ class VideoQueueConsumer:
 
         self.server.start()
 
-        self.thread = threading.Thread(target=self.run)
+        self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
     def run(self):

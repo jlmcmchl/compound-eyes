@@ -20,7 +20,9 @@ class Camera:
         self.device = device
 
         self.raw_queue: Queue[Capture] = Queue(maxsize=1)
-        self.debug_server = VideoQueueConsumer(debug_port, self.raw_queue)
+        self.debug_server = VideoQueueConsumer(
+            f"{device.info.bus_info}-debug", debug_port, self.raw_queue
+        )
 
         self.nt_table = parent.getSubTable(self.device.info.bus_info)
         role_topic = self.nt_table.getStringTopic("role")
@@ -33,7 +35,9 @@ class Camera:
             self.device, self.nt_table.getSubTable("config")
         )
 
-        self.main_thread = threading.Thread(name=device.filename.name, target=self.main_loop)
+        self.main_thread = threading.Thread(
+            name=device.filename.name, target=self.main_loop
+        )
         self._stop = False
 
         self.fps_counter = FpsCounter()
@@ -44,6 +48,7 @@ class Camera:
     def stop(self):
         self._stop = True
         self.main_thread.join()
+        self.debug_server.stop()
 
     def main_loop(self):
         try:
@@ -84,7 +89,7 @@ class CameraManager:
 
     def __init__(self, table: NetworkTable):
         self.table = table
-        self.debug_port = 5800
+        self.debug_port = 5820
 
         self.streams = table.getStringArrayTopic("video/streams").getEntry([])
 

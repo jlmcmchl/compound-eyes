@@ -7,7 +7,7 @@ from aiohttp import MultipartWriter, web
 from aiohttp.web_runner import GracefulExit
 from multidict import MultiDict
 
-from .stream import StreamBase, Stream
+from .stream import Stream
 
 
 class _StreamHandler:
@@ -21,8 +21,10 @@ class _StreamHandler:
         if "compression" in args:
             self._stream.set_quality(int(args["compression"]))
         if "resolution" in args:
-            reso = args["resolution"].split["x"]
+            reso = args["resolution"].split("x")
             self._stream.set_size((int(reso[0]), int(reso[1])))
+        else:
+            self._stream.set_size(None)
         viewer_token = request.cookies.get("viewer_token")
         response = web.StreamResponse(
             status=200,
@@ -64,7 +66,7 @@ class _StreamHandler:
 class Server:
     def __init__(
         self,
-        stream: StreamBase,
+        stream: Stream,
         host: Union[str, List[str,]] = "localhost",
         port: int = 8080,
     ) -> None:

@@ -84,7 +84,7 @@ class NetworkFormatControl(NetworkChooser):
         )
 
     def str_frame(self, format: FrameType) -> str:
-        return f"{format.pixel_format.name} {format.width}x{format.height}px {format.min_fps}fps"
+        return f"{format.width}x{format.height}px {format.pixel_format.name} {format.min_fps} fps"
 
     def get(self) -> FrameType:
         idx = self.format_strs.index(self.active)

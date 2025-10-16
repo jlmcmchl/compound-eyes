@@ -139,7 +139,7 @@ class Stream(StreamBase):
         self._last_processed_frame = frame
         return frame
 
-    def set_size(self, size: Tuple[int, int]) -> None:
+    def set_size(self, size: Tuple[int, int] | None) -> None:
         self.size = size
 
     def set_quality(self, quality: int) -> None:

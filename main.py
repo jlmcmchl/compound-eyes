@@ -2,11 +2,13 @@ import time
 import logging
 from ntcore import NetworkTableInstance
 from compound_eyes.camera_manager import CameraManager
+import socket
 
 
 def main():
     nt = NetworkTableInstance.getDefault()
-    nt.startServer()
+    nt.startClient4(f"{socket.gethostname()}-compoundeyes")
+    nt.setServer("localhost")
 
     camera_manager = CameraManager(nt.getTable("cameras"))
 

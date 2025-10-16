@@ -1,6 +1,5 @@
 from queue import Queue, Empty
 
-from ..datatypes import Capture
 from threading import Thread
 from .fps_counter import FpsCounter
 from mjpeg_streamer.server import Server
@@ -11,6 +10,7 @@ import cv2
 import numpy as np
 import logging
 from typing import Any
+
 
 class Node:
     def __init__(self, name=None):
@@ -32,6 +32,7 @@ class Node:
         self._stop = True
         self.thread.join()
 
+
 class Graph:
     def __init__(self, name: str):
         self.nodes: list[Node] = []
@@ -47,6 +48,7 @@ class Graph:
             self.logger.info(f"Stopping {node.name}...")
             node.stop()
             self.logger.info(f"Stopped {node.name}.")
+
 
 class ForkNode(Node):
     def __init__(self, source: Queue, sink: list[Queue]):
@@ -74,8 +76,7 @@ class FpsNode(Node):
         self.sink = sink
         self.fps = FpsCounter()
 
-        super().__init__(f'{name}_fps')
-
+        super().__init__(f"{name}_fps")
 
     def loop(self):
         try:
@@ -89,10 +90,11 @@ class FpsNode(Node):
         except Empty:
             pass
 
+
 class DebugNode(Node):
     def __init__(self, name: str, port: int, source: Queue):
         self.source = source
-        
+
         self.stream = Stream(name, fps=30)
         self.server = Server(self.stream, "0.0.0.0", port)
         self.server.start()
@@ -116,8 +118,10 @@ class DebugNode(Node):
 
         except Empty:
             pass
-    
-    def paint_frame(self, image: np.ndarray, timestamp: float, metadata: dict[str, Any]):
+
+    def paint_frame(
+        self, image: np.ndarray, timestamp: float, metadata: dict[str, Any]
+    ):
         cv2.putText(
             image,
             f"Timestamp: {timestamp:.2f}",

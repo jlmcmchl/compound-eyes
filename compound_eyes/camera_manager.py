@@ -13,6 +13,7 @@ from .network_choice import NetworkChooser
 from .datatypes import Capture
 from .node import Graph, FpsNode, DebugNode
 
+
 class Camera:
     def __init__(self, device: Device, parent: NetworkTable, debug_port: int):
         self.device = device
@@ -22,7 +23,11 @@ class Camera:
 
         self.graph = Graph(self.device.info.bus_info)
         self.graph.add_node(FpsNode(self.raw_queue, debug_queue, name="source"))
-        self.graph.add_node(DebugNode(name=self.device.info.bus_info, port=debug_port, source=debug_queue))
+        self.graph.add_node(
+            DebugNode(
+                name=self.device.info.bus_info, port=debug_port, source=debug_queue
+            )
+        )
 
         self.nt_table = parent.getSubTable(self.device.info.bus_info)
         role_topic = self.nt_table.getStringTopic("role")
@@ -39,7 +44,6 @@ class Camera:
             name=device.filename.name, target=self.main_loop
         )
         self._stop = False
-
 
     def start(self):
         self.main_thread.start()

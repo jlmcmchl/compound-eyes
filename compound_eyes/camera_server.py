@@ -4,8 +4,10 @@ import socket
 
 class PublishedCameraStream:
     def __init__(self, camera: str):
-        table = NetworkTableInstance.getDefault().getTable("CameraPublisher").getSubTable(
-            f"{socket.gethostname()}_{camera}"
+        table = (
+            NetworkTableInstance.getDefault()
+            .getTable("CameraPublisher")
+            .getSubTable(f"{socket.gethostname()}_{camera}")
         )
         self.connected = table.getBooleanTopic("connected").publish()
         self.description = table.getStringTopic("description").publish()

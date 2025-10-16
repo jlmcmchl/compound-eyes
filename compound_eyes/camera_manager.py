@@ -11,7 +11,7 @@ from .camera_controls_nt import CameraControlsTable
 from .convert_frame import process_frame
 from .network_choice import NetworkChooser
 from .datatypes import Capture
-from .node import Graph, FpsNode, DebugNode
+from .node import Graph, FpsNode, DebugNode, DetectCharucoNode, CalibrationConfig
 
 
 class Camera:
@@ -19,10 +19,26 @@ class Camera:
         self.device = device
 
         self.raw_queue: Queue[Capture] = Queue(maxsize=1)
+
+        charuco_queue = Queue(maxsize=1)
+
         debug_queue = Queue(maxsize=1)
 
         self.graph = Graph(self.device.info.bus_info)
-        self.graph.add_node(FpsNode(self.raw_queue, debug_queue, name="source"))
+        self.graph.add_node(
+            DetectCharucoNode(
+                self.raw_queue,
+                charuco_queue,
+                CalibrationConfig(
+                    aruco_dict="DICT_4X4_1000",
+                    board_size=(15, 15),
+                    square_size=0.03,
+                    marker_size=0.022,
+                ),
+                self.device.info.bus_info,
+            )
+        )
+        self.graph.add_node(FpsNode(charuco_queue, debug_queue, name="source"))
         self.graph.add_node(
             DebugNode(
                 name=self.device.info.bus_info, port=debug_port, source=debug_queue

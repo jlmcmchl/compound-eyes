@@ -10,6 +10,9 @@ import cv2
 import numpy as np
 import logging
 from typing import Any
+from dataclasses import dataclass
+from cv2 import aruco
+from ..datatypes import Capture
 
 
 class Node:
@@ -94,9 +97,113 @@ class FpsNode(Node):
             pass
 
 
-class DebugNode(Node):
-    def __init__(self, name: str, port: int, source: Queue):
+@dataclass
+class CalibrationConfig:
+    aruco_dict: str
+    board_size: tuple[int, int]
+    square_size: float
+    marker_size: float
+
+    def getDetector(self) -> cv2.aruco.CharucoDetector:
+        assert self.aruco_dict in dir(aruco)
+        aruco_dict = cv2.aruco.getPredefinedDictionary(eval(f"aruco.{self.aruco_dict}"))
+        charuco_board = cv2.aruco.CharucoBoard(
+            self.board_size,
+            self.square_size,
+            self.marker_size,
+            aruco_dict,
+        )
+        charuco_params = cv2.aruco.CharucoParameters()
+        detector_params = cv2.aruco.DetectorParameters()
+        # parameters pulled from PhotonVision
+        detector_params.adaptiveThreshWinSizeMin = 11
+        detector_params.adaptiveThreshWinSizeStep = 40
+        detector_params.adaptiveThreshWinSizeMax = 91
+        detector_params.adaptiveThreshConstant = 10
+        detector_params.errorCorrectionRate = 0
+        detector_params.useAruco3Detection = False
+        detector_params.minMarkerLengthRatioOriginalImg = 0.02
+        detector_params.minSideLengthCanonicalImg = 32
+        refine_params = cv2.aruco.RefineParameters()
+        return cv2.aruco.CharucoDetector(
+            charuco_board, charuco_params, detector_params, refine_params
+        )
+
+
+class DetectCharucoNode(Node):
+    def __init__(
+        self, source: Queue[Capture], sink: Queue, config: CalibrationConfig, name: str
+    ):
         self.source = source
+        self.sink = sink
+        self.config = config
+
+        self.corner_count = (self.config.board_size[0] - 1) * (
+            self.config.board_size[1] - 1
+        )
+        self.detector = config.getDetector()
+
+        self.corner_cache = {}
+
+        super().__init__(name)
+
+    def loop(self):
+        try:
+            capture = self.source.get(timeout=0.1)
+
+            (
+                chessboard_corner_coords,
+                chessboard_corner_ids,
+                marker_corner_coords,
+                marker_ids,
+            ) = self.detector.detectBoard(capture.image)
+
+            if chessboard_corner_coords is not None:
+                fname = self.save_calibration_image(capture)
+                self.corner_cache[fname] = (
+                    chessboard_corner_ids,
+                    chessboard_corner_coords,
+                )
+                capture.metadata['corners_found'] = chessboard_corner_ids.shape[0]
+            else:
+                capture.metadata['corners_found'] = 0
+
+            capture.metadata['total_corners_found'] = sum(ids.shape[0] for (ids, _) in self.corner_cache.values())
+
+            for _, corners in self.corner_cache.values():
+                cv2.aruco.drawDetectedCornersCharuco(capture.image, corners)
+
+                # cv2.aruco.drawDetectedCornersCharuco(
+                #     capture.image, chessboard_corner_coords
+                # )
+
+                
+
+            if marker_corner_coords is not None:
+                cv2.aruco.drawDetectedMarkers(capture.image, marker_corner_coords)
+
+
+            if not self.sink.full():
+                self.sink.put(capture)
+
+        except Empty:
+            pass
+
+    def save_calibration_image(self, capture: Capture):
+        filename = (
+            f"calibration/{self.name}"
+            f"/{capture.frame.format.width}x{capture.frame.format.height}"
+            f"/img{len(self.corner_cache) + 1}.png"
+        )
+        cv2.imwrite(filename, capture.image)
+
+        return filename
+
+
+class DebugNode(Node):
+    def __init__(self, name: str, port: int, source: Queue, sink: Queue | None = None):
+        self.source = source
+        self.sink = sink
 
         self.stream = Stream(name, fps=30)
         self.server = Server(self.stream, "0.0.0.0", port)
@@ -114,10 +221,14 @@ class DebugNode(Node):
     def loop(self):
         try:
             capture = self.source.get(timeout=0.1)
+            image = capture.image.copy()
 
-            self.paint_frame(capture.image, capture.frame.timestamp, capture.metadata)
+            self.paint_frame(image, capture.frame.timestamp, capture.metadata)
 
-            self.stream.set_frame(capture.image)
+            self.stream.set_frame(image)
+
+            if self.sink and not self.sink.full():
+                self.sink.put(capture)
 
         except Empty:
             pass
@@ -131,7 +242,7 @@ class DebugNode(Node):
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             1,
-            (0, 0, 255),
+            (0, 255, 0),
             2,
         )
 
@@ -143,7 +254,7 @@ class DebugNode(Node):
                 (10, height),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0, 0, 255),
+                (0, 255, 0),
                 2,
             )
 

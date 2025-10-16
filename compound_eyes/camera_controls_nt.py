@@ -33,6 +33,7 @@ class NTBooleanControl(NTControl):
         self.topic = table.getBooleanTopic(control.config_name)
         self.entry = self.topic.getEntry(bool(self.control.default))
         self.entry.set(bool(self.control.value))
+        self.topic.setPersistent(True)
 
         self.metadata_topic = table.getStringTopic(f".metadata/{control.config_name}")
         self.metadata_pub = self.metadata_topic.publish()
@@ -65,6 +66,7 @@ class NTIntegerControl(NTControl):
         self.control = control
         self.topic = table.getIntegerTopic(control.config_name)
         self.entry = self.topic.getEntry(self.control.value)
+        self.topic.setPersistent(True)
 
         self.metadata_topic = table.getStringTopic(f".metadata/{control.config_name}")
         self.metadata_pub = self.metadata_topic.publish()
@@ -166,6 +168,7 @@ class NTFormatControl(NTControl):
                 self.device.set_fps(BufferType.VIDEO_CAPTURE, val.max_fps)
             except Exception as e:
                 self.device.log.error(f"Could not update Video Format: {e}")
+                self.sync()
             else:
                 self.device.log.info("Updated Video Format")
 

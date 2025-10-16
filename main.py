@@ -7,8 +7,9 @@ import socket
 
 def main():
     nt = NetworkTableInstance.getDefault()
-    nt.startClient4(f"{socket.gethostname()}-compoundeyes")
-    nt.setServer("localhost")
+    # nt.startClient4(f"{socket.gethostname()}-compoundeyes")
+    # nt.setServer("localhost")
+    nt.startServer('0.0.0.0')
 
     camera_manager = CameraManager(nt.getTable("cameras"))
 

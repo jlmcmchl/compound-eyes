@@ -45,7 +45,10 @@ class NTBooleanControl(NTControl):
 
         if int(val) != self.control.value:
             self.device.log.info(f"Updating {self.control.name}")
-            self.control.value = int(val)
+            try:
+                self.control.value = int(val)
+            except PermissionError:
+                self.sync()
             self.device.log.info(f"Updated {self.control.name}")
 
     def sync(self):
@@ -90,7 +93,10 @@ class NTIntegerControl(NTControl):
 
         if val != self.control.value:
             self.device.log.info(f"Updating {self.control.name}")
-            self.control.value = val
+            try:
+                self.control.value = val
+            except PermissionError:
+                self.sync()
             self.device.log.info(f"Updated {self.control.name}")
 
     def sync(self):
@@ -116,7 +122,11 @@ class NTMenuControl(NTControl):
 
         if val != self.control.value:
             self.device.log.info(f"Updating {self.control.name}")
-            self.control.value = val
+
+            try:
+                self.control.value = val
+            except PermissionError:
+                self.sync()
             self.device.log.info(f"Updated {self.control.name}")
 
     def sync(self):

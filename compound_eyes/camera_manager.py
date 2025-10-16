@@ -8,21 +8,21 @@ import threading
 import traceback
 
 from .camera_controls_nt import CameraControlsTable
-from .debug_server import VideoQueueConsumer
 from .convert_frame import process_frame
 from .network_choice import NetworkChooser
-from .fps_counter import FpsCounter
 from .datatypes import Capture
-
+from .node import Graph, FpsNode, DebugNode
 
 class Camera:
     def __init__(self, device: Device, parent: NetworkTable, debug_port: int):
         self.device = device
 
         self.raw_queue: Queue[Capture] = Queue(maxsize=1)
-        self.debug_server = VideoQueueConsumer(
-            f"{device.info.bus_info}-debug", debug_port, self.raw_queue
-        )
+        debug_queue = Queue(maxsize=1)
+
+        self.graph = Graph(self.device.info.bus_info)
+        self.graph.add_node(FpsNode(self.raw_queue, debug_queue, name="source"))
+        self.graph.add_node(DebugNode(name=self.device.info.bus_info, port=debug_port, source=debug_queue))
 
         self.nt_table = parent.getSubTable(self.device.info.bus_info)
         role_topic = self.nt_table.getStringTopic("role")
@@ -40,7 +40,6 @@ class Camera:
         )
         self._stop = False
 
-        self.fps_counter = FpsCounter()
 
     def start(self):
         self.main_thread.start()
@@ -48,7 +47,7 @@ class Camera:
     def stop(self):
         self._stop = True
         self.main_thread.join()
-        self.debug_server.stop()
+        self.graph.stop()
 
     def main_loop(self):
         try:
@@ -61,13 +60,12 @@ class Camera:
 
                 for frame in self.device:
                     normalized_frame = process_frame(frame)
-                    fps = self.fps_counter.getfps()
 
                     self.mode_entry.periodic()
                     mode = self.mode_entry.get()
 
                     if not self.raw_queue.full():
-                        self.raw_queue.put(Capture(frame, fps, normalized_frame))
+                        self.raw_queue.put(Capture(frame, normalized_frame))
 
                     if mode == "setup":
                         if self.config_table.changed():

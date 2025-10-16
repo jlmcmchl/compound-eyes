@@ -136,7 +136,7 @@ class CalibrationTool:
             self.fov, self.image_size[0], self.image_size[1]
         )
         subprocess.run(
-            "uv run ./mrcal-calibrate-cameras"
+            "uv run ./mrcal/mrcal-calibrate-cameras"
             f" --lensmodel {self.lens_model}"
             f" --focal {sum(focal_view) / 2}"
             f" --object-width-n {self.board_size[0] - 1}"

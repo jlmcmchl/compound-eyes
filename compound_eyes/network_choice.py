@@ -5,9 +5,7 @@ from linuxpy.video.device import (
     MenuControl,
     Device,
     FrameSizeType,
-    BufferType,
     FrameType,
-    Format,
 )
 from typing import Any
 

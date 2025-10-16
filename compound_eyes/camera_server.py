@@ -1,4 +1,4 @@
-from ntcore import NetworkTableInstance, NetworkTable
+from ntcore import NetworkTableInstance
 import socket
 
 

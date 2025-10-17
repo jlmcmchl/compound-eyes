@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.13.0",
+    "gnuplotlib>=0.45",
+    "ipython>=9.6.0",
     "linuxpy>=0.23.0",
     "numpy<2.0",
     "numpysane",

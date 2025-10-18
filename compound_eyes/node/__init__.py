@@ -2,14 +2,9 @@ from queue import Queue, Empty
 
 from threading import Thread
 from .fps_counter import FpsCounter
-from mjpeg_streamer.server import Server
-from mjpeg_streamer.stream import Stream
-from ..camera_server import PublishedCameraStream
-import socket
 import cv2
-import numpy as np
 import logging
-from typing import Any
+from typing import Callable
 from dataclasses import dataclass
 from cv2 import aruco
 from ..datatypes import Capture
@@ -57,20 +52,51 @@ class Graph:
             self.logger.info(f"Stopped {node.name}.")
 
 
-class ForkNode(Node):
-    def __init__(self, source: Queue, sink: list[Queue]):
+class SelectSink(Node):
+    def __init__(
+        self, source: Queue, sink: dict[str, Queue], selector: Callable[[], str]
+    ):
         self.source = source
         self.sink = sink
+        self.selector = selector
 
         super().__init__()
 
     def loop(self):
         try:
+            sink = self.sink[self.selector()]
+            if sink is None:
+                return
+
             capture = self.source.get(timeout=0.1)
 
-            for sink in self.sink:
-                if not sink.full():
-                    sink.put(capture.copy())
+            if not sink.full():
+                sink.put(capture)
+
+        except Empty:
+            pass
+
+
+class SelectSource(Node):
+    def __init__(
+        self, source: dict[str, Queue], sink: Queue, selector: Callable[[], str]
+    ):
+        self.source = source
+        self.sink = sink
+        self.selector = selector
+
+        super().__init__()
+
+    def loop(self):
+        try:
+            source = self.source[self.selector()]
+            if source is None:
+                return
+
+            capture = source.get(timeout=0.1)
+
+            if not self.sink.full():
+                self.sink.put(capture)
 
         except Empty:
             pass
@@ -163,64 +189,3 @@ class DetectCharucoNode(Node):
         routine = self.routine
         self.routine = None
         return routine
-
-
-class DebugNode(Node):
-    def __init__(self, name: str, port: int, source: Queue, sink: Queue | None = None):
-        self.source = source
-        self.sink = sink
-
-        self.stream = Stream(name, fps=30)
-        self.server = Server(self.stream, "0.0.0.0", port)
-        self.server.start()
-
-        self.registered_stream = PublishedCameraStream(name)
-        self.registered_stream.enable(
-            "",
-            "1600x1304 MJPG 30 fps",
-            [f"mjpg:http://{socket.gethostname()}.attlocal.net:{port}/stream.mjpg"],
-        )
-
-        super().__init__(name)
-
-    def loop(self):
-        try:
-            capture = self.source.get(timeout=0.1)
-            image = capture.image.copy()
-
-            self.paint_frame(image, capture.frame.timestamp, capture.metadata)
-
-            self.stream.set_frame(image)
-
-            if self.sink and not self.sink.full():
-                self.sink.put(capture)
-
-        except Empty:
-            pass
-
-    def paint_frame(
-        self, image: np.ndarray, timestamp: float, metadata: dict[str, Any]
-    ):
-        cv2.putText(
-            image,
-            f"Timestamp: {timestamp:.2f}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2,
-        )
-
-        height = 60
-        for key, value in metadata.items():
-            cv2.putText(
-                image,
-                f"{key}: {value:.2f}",
-                (10, height),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
-
-            height += 30

@@ -153,7 +153,7 @@ class CalibrationRoutine:
         # Base case: calibration has not begun
         if self.dirpath is None:
             return
-        
+
         if len(self.corner_cache) == 0:
             return
 
@@ -191,17 +191,21 @@ class CalibrationRoutine:
         focal_view = estimate_focal_length(
             self.config.fov, self.config.image_size[0], self.config.image_size[1]
         )
+
         subprocess.run(
-            "uv run ./mrcal/mrcal-calibrate-cameras"
-            f" --lensmodel {self.config.lens_model}"
-            f" --focal {sum(focal_view) / 2}"
-            f" --object-width-n {self.config.board_size[0] - 1}"
-            f" --object-height-n {self.config.board_size[1] - 1}"
-            f" --object-spacing {self.config.square_size}"
-            f" --corners-cache {self.dirpath / 'corners.vnl'}"
-            f" --jobs {mp.cpu_count()}"
-            f" --outdir {self.dirpath}"
-            f' "{self.dirpath / "img*.png"}"',
+            f"""
+            docker container run --rm -v $(pwd)/calibration:/mrcal/calibration mrcal 
+                ./mrcal-calibrate-cameras
+                    --lensmodel {self.config.lens_model}
+                    --focal {sum(focal_view) / 2}
+                    --object-width-n {self.config.board_size[0] - 1}
+                    --object-height-n {self.config.board_size[1] - 1}
+                    --object-spacing {self.config.square_size}
+                    --corners-cache {self.dirpath / "corners.vnl"}
+                    --jobs {mp.cpu_count()}
+                    --outdir {self.dirpath}
+                    "{self.dirpath / "img*.png"}"
+            """,
             shell=True,
             check=True,
         )
@@ -211,9 +215,20 @@ class CalibrationRoutine:
             raise Exception(
                 "Calling this function without calling CalibrationRoutine::begin() is an error!"
             )
-        
+
         if not (self.dirpath / "camera-0.cameramodel").exists():
             return None
 
         with open(self.dirpath / "camera-0.cameramodel") as f:
             return cameramodel(f)
+
+
+def fov(image_size, focal_lengths):
+    width, height = image_size
+    fx, fy = focal_lengths
+    hfov = 2 * math.atan2(width / 2, fx)
+    vfov = 2 * math.atan2(height / 2, fy)
+    diagfov = 2 * math.atan2(
+        math.sqrt(width * width + (height / (fy / fx)) ** 2) / 2, fx
+    )
+    return hfov, vfov, diagfov

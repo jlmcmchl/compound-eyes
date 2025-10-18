@@ -10,8 +10,7 @@ import shutil
 import math
 import subprocess
 import multiprocessing as mp
-from mrcal.cameramodel import cameramodel
-
+from camera_model import CameraModel, from_file
 
 @dataclass
 class CalibrationConfig:
@@ -182,7 +181,7 @@ class CalibrationRoutine:
         # step 2: calibrate with mrcal
         self.cli_calibrate()
 
-    def cli_calibrate(self) -> cameramodel:
+    def cli_calibrate(self):
         if self.dirpath is None:
             raise Exception(
                 "Calling this function without calling CalibrationRoutine::begin() is an error!"
@@ -210,7 +209,7 @@ class CalibrationRoutine:
             check=True,
         )
 
-    def load_calibration(self) -> cameramodel | None:
+    def load_calibration(self) -> CameraModel | None:
         if self.dirpath is None:
             raise Exception(
                 "Calling this function without calling CalibrationRoutine::begin() is an error!"
@@ -220,7 +219,7 @@ class CalibrationRoutine:
             return None
 
         with open(self.dirpath / "camera-0.cameramodel") as f:
-            return cameramodel(f)
+            return from_file(f.read())
 
 
 def fov(image_size, focal_lengths):
